@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <library>
     <books>
-        <book>
+        <book xmlns="http://xml.netbeans.org/schema/books">
             <id>1
             <name>Wealth of nations</name>
             <author>Adam Smith</author>
@@ -14,20 +14,20 @@
             <author>Paulo Coelho</author>
             <price>7</price>
         </book>
-        <book>
+        <book xmlns="http://xml.netbeans.org/schema/books">
             <id>3</id>
             <name>The Little Prince</name>
             <author>Antoine de Saint-Exupéry</author>
             <price>5</price>
         </book>
     
-        <book>
+        <book xmlns="http://xml.netbeans.org/schema/books">
             <name>The Twilight Saga</name>
             <id>4</id>
             <author>Stephenie Meyer
             <price>20</price>
         </book>
-        <book>
+        <book xmlns="http://xml.netbeans.org/schema/books">
             <id>5</id>
             <name>Giấc Mơ Hóa Rồng</name>
             <author>Huỳnh Bửu Sơn</author>
@@ -39,15 +39,15 @@
             <id>1</id>
             <name>Nam Le</name>
         </employee>
-        <employee>
+        <employee xmlns="http://xml.netbeans.org/schema/employees">
             <id>2</id>
             <name>Khanh Kieu
         </employee>
-        <employee>
+        <employee xmlns="http://xml.netbeans.org/schema/employees">
             <id>3</id>
             <name>Tung Huu</name>
         </employee>
-        <employee>
+        <employee xmlns="http://xml.netbeans.org/schema/employees">
             <name>Bach Ngoc</name>
             <id>4</id>
         </employee>

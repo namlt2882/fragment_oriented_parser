@@ -5,16 +5,22 @@
  */
 package trinity.sample.library;
 
-import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLEventWriter;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -23,6 +29,13 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+import trinity.sample.library.book.Book;
+import trinity.sample.library.book.BookErrorDataParser;
+import trinity.sample.library.employee.Employee;
+import trinity.sample.library.employee.EmployeeErrorDataParser;
 
 /**
  *
@@ -35,74 +48,150 @@ public class LibraryStaxParser {
     static XMLInputFactory f = XMLInputFactory.newInstance();
     static FileReader reader;
     static StreamExceptionHandler exceptionHandler = new StreamExceptionHandler();
+    static XMLOutputFactory outputFactory = XMLOutputFactory.newInstance();
+    private List<Book> bookRs;
+    private List<Book> bookErrRs;
+    private List<Employee> employeeRs;
+    private List<Employee> employeeErrRs;
+
+    public List<Book> getBookRs() {
+        return bookRs;
+    }
+
+    public List<Book> getBookErrRs() {
+        return bookErrRs;
+    }
+
+    public List<Employee> getEmployeeRs() {
+        return employeeRs;
+    }
+
+    public List<Employee> getEmployeeErrRs() {
+        return employeeErrRs;
+    }
 
     public static void main(String[] args) throws XMLStreamException, FileNotFoundException {
-        LibraryNotWellFormFilter filter = new LibraryNotWellFormFilter();
-        reader = new FileReader("src/library.xml");
-        streamReader = f.createXMLStreamReader(reader);
-        
         LibraryStaxParser parser = new LibraryStaxParser();
+        parser.parse();
+        System.out.println("Book data----");
+        parser.getBookRs().forEach(System.out::println);
+        System.out.println("Book error data----");
+        parser.getBookErrRs().forEach(System.out::println);
+        System.out.println("\nEmployee data----");
+        parser.getEmployeeRs().forEach(System.out::println);
+        System.out.println("Employee error data----");
+        parser.getEmployeeErrRs().forEach(System.out::println);
+    }
+
+    public void parse() {
         try {
-            while (streamReader.hasNext()) {
-                try {
-                    streamReader.next();
-                } catch (XMLStreamException e) {
-                    Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, e);
-                } catch (Exception ex) {
-                    break;
-                }
-                if (streamReader.getEventType() == XMLStreamReader.START_ELEMENT) {
-                    String elementName = streamReader.getLocalName();
-                    if ("books".equals(elementName)) {
-                        parser.parseBooks(streamReader);
-                    } else if ("employees".equals(elementName)) {
-                        parser.parseEmployees(streamReader);
+            reader = new FileReader("src/library.xml");
+            streamReader = f.createXMLStreamReader(reader);
+
+            List<String> bookIs = null;
+            List<String> employeeIs = null;
+            SchemaValidator validator = new SchemaValidator();
+            try {
+                while (streamReader.hasNext()) {
+                    try {
+                        streamReader.next();
+                    } catch (XMLStreamException e) {
+                        Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, e);
+                    } catch (Exception ex) {
+                        break;
+                    }
+                    if (streamReader.getEventType() == XMLStreamReader.START_ELEMENT) {
+                        String elementName = streamReader.getLocalName();
+                        if ("books".equals(elementName)) {
+                            bookIs = parseBooks(streamReader);
+                        } else if ("employees".equals(elementName)) {
+                            employeeIs = parseEmployees(streamReader);
+                        }
                     }
                 }
+                List<String> notValidateBookIs = validator.validate(bookIs, Book.class);
+                bookRs = validator.getResultList();
+                List<String> notValidateEmployeeIs = validator.validate(employeeIs, Employee.class);
+                employeeRs = validator.getResultList();
+                BookErrorDataParser bedp = new BookErrorDataParser();
+                bookErrRs = notValidateBookIs.stream().flatMap(s -> {
+                    bedp.reset();
+                    List<Book> rs = parseBySaxHandler(s, bedp);
+                    return rs.stream();
+                }).collect(Collectors.toList());
+                EmployeeErrorDataParser eedp = new EmployeeErrorDataParser();
+                employeeErrRs = notValidateEmployeeIs.stream().flatMap(s -> {
+                    eedp.reset();
+                    List<Employee> rs = parseBySaxHandler(s, eedp);
+                    return rs.stream();
+                }).collect(Collectors.toList());
+                
+            } finally {
+                int c = streamReader.getLocation().getColumnNumber();
+                int l = streamReader.getLocation().getLineNumber();
+//            System.out.println("End offset: [" + l + "," + c + "]");
             }
-        } finally {
-            int c = streamReader.getLocation().getColumnNumber();
-            int l = streamReader.getLocation().getLineNumber();
-            System.out.println("End offset: [" + l + "," + c + "]");
+        } catch (Exception ex) {
+            Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public InputStream convertXMLEventToInputSource(List<XMLEvent> list) {
-        StringBuilder builder = new StringBuilder();
-        list.forEach(e -> builder.append(e));
-        InputStream stream = null;
+    public List parseBySaxHandler(String str, DefaultHandler handler) {
+        SAXParserFactory spf = SAXParserFactory.newInstance();
+        SAXParser parser;
         try {
-            stream = new ByteArrayInputStream(builder.toString().getBytes("UTF-8"));
-        } catch (UnsupportedEncodingException ex) {
-            throw new RuntimeException(ex);
+            parser = spf.newSAXParser();
+            parser.parse(SchemaValidator.createInputSource(str), handler);
+        } catch (Exception ex) {
+            Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return stream;
+        return ((SAXErrorDataParser) handler).getResult();
     }
 
-    public InputStream parseBooks(XMLStreamReader streamReader) {
-        List<XMLEvent> writers;
+    public String convertXMLEventToString(List<XMLEvent> list) {
+        StringWriter sr = new StringWriter();
+        XMLEventWriter xew;
+        try {
+            xew = outputFactory.createXMLEventWriter(sr);
+            list.forEach((event) -> {
+                try {
+                    xew.add(event);
+                } catch (XMLStreamException ex) {
+                }
+            });
+            xew.flush();
+            xew.close();
+        } catch (XMLStreamException ex) {
+            Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        String s = sr.toString();
+        return s;
+    }
+
+    public List<String> parseBooks(XMLStreamReader streamReader) {
+        List<List<XMLEvent>> writers;
         try {
             writers = getXmlFragments(streamReader, "books", "book");
-            return convertXMLEventToInputSource(writers);
+            return writers.stream().map(this::convertXMLEventToString).collect(Collectors.toList());
         } catch (XMLStreamException ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return null;
+        return new ArrayList<>();
     }
 
-    public InputStream parseEmployees(XMLStreamReader streamReader) {
-        List<XMLEvent> writers;
+    public List<String> parseEmployees(XMLStreamReader streamReader) {
+        List<List<XMLEvent>> writers;
         try {
             writers = getXmlFragments(streamReader, "employees", "employee");
-            return convertXMLEventToInputSource(writers);
+            return writers.stream().map(this::convertXMLEventToString).collect(Collectors.toList());
         } catch (XMLStreamException ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return null;
+        return new ArrayList<>();
     }
 
-    public List<XMLEvent> getXmlFragments(XMLStreamReader streamReader, String endTag, String fragmentRootTag) throws XMLStreamException {
-        List<XMLEvent> rs = new ArrayList<>();
+    public List<List<XMLEvent>> getXmlFragments(XMLStreamReader streamReader, String endTag, String fragmentRootTag) throws XMLStreamException {
+        List<List<XMLEvent>> rs = new ArrayList<>();
         boolean inFragment = false;
         String tagName;
         int cursor = 0;
@@ -140,11 +229,12 @@ public class LibraryStaxParser {
         return rs;
     }
 
-    public List<XMLEvent> getXmlFragment(XMLStreamReader streamReader, String parentTag) throws XMLStreamException {
-        List<XMLEvent> sw = new ArrayList<>();
+    public List<List<XMLEvent>> getXmlFragment(XMLStreamReader streamReader, String parentTag) throws XMLStreamException {
+        List<List<XMLEvent>> rs = new ArrayList<>();
         XMLOutputFactory of = XMLOutputFactory.newInstance();
         XMLEventReader xr = f.createXMLEventReader(streamReader);
         boolean found = false;
+        List<XMLEvent> tmp = null;
         while (xr.hasNext()) {
             XMLEvent e = null;
             try {
@@ -155,23 +245,26 @@ public class LibraryStaxParser {
             if (e.isStartElement()
                     && ((StartElement) e).getName().getLocalPart().equals(parentTag)) {
                 if (found) {
-                    sw.add(exceptionHandler.newEndElement(parentTag));
+                    tmp.add(exceptionHandler.newEndElement(parentTag));
+                    rs.add(tmp);
                     break;
                 } else {
                     found = true;
+                    tmp = new ArrayList<>();
                 }
             } else if (e.isEndElement()
                     && ((EndElement) e).getName().getLocalPart().equals(parentTag)) {
-                sw.add(e);
+                tmp.add(e);
+                rs.add(tmp);
                 break;
             }
             if (e != null) {
                 if (!e.isCharacters() || (e.isCharacters() && !e.asCharacters().isWhiteSpace())) {
-                    sw.add(e);
+                    tmp.add(e);
                 }
             }
         }
-        return sw;
+        return rs;
     }
 
 }

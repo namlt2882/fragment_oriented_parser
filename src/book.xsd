@@ -10,7 +10,7 @@
             <xsd:element name="id" type="xsd:string"/>
             <xsd:element name="name" type="xsd:string"/>
             <xsd:element name="author" type="xsd:string"/>
-            <xsd:element name="price" type="xsd:postiveInteger"/>
+            <xsd:element name="price" type="xsd:positiveInteger"/>
         </xsd:sequence>
     </xsd:complexType>
 </xsd:schema>

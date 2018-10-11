@@ -2,8 +2,6 @@ package trinity.sample.library;
 
 import com.sun.xml.internal.stream.events.EndElementEvent;
 import com.sun.xml.internal.stream.events.StartElementEvent;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
