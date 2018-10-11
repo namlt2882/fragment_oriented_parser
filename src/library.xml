@@ -20,9 +20,10 @@
             <author>Antoine de Saint-Exupéry</author>
             <price>5</price>
         </book>
+    
         <book>
-            <id>4</id>
             <name>The Twilight Saga</name>
+            <id>4</id>
             <author>Stephenie Meyer
             <price>20</price>
         </book>
@@ -32,13 +33,11 @@
             <author>Huỳnh Bửu Sơn</author>
             <price>12</price>
         </book>
-    </book>
     </books>
     <employees>
         <employee>
             <id>1</id>
             <name>Nam Le</name>
-        </employee>
         </employee>
         <employee>
             <id>2</id>
@@ -49,8 +48,8 @@
             <name>Tung Huu</name>
         </employee>
         <employee>
-            <id>4</id>
             <name>Bach Ngoc</name>
+            <id>4</id>
         </employee>
     </employees>
 </library>

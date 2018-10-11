@@ -5,16 +5,16 @@
  */
 package trinity.sample.library;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.StringWriter;
-import java.io.Writer;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.stream.XMLEventReader;
-import javax.xml.stream.XMLEventWriter;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -31,17 +31,26 @@ import javax.xml.stream.events.XMLEvent;
 public class LibraryStaxParser {
 
     private static boolean foundException = false;
+    static XMLStreamReader streamReader;
+    static XMLInputFactory f = XMLInputFactory.newInstance();
+    static FileReader reader;
+    static StreamExceptionHandler exceptionHandler = new StreamExceptionHandler();
 
     public static void main(String[] args) throws XMLStreamException, FileNotFoundException {
         LibraryNotWellFormFilter filter = new LibraryNotWellFormFilter();
-        XMLInputFactory factory = XMLInputFactory.newFactory();
-        XMLStreamReader streamReader = factory.createXMLStreamReader(new FileReader("src/library.xml"));
-//        streamReader = factory.createFilteredReader(streamReader, filter);
-
+        reader = new FileReader("src/library.xml");
+        streamReader = f.createXMLStreamReader(reader);
+        
         LibraryStaxParser parser = new LibraryStaxParser();
         try {
             while (streamReader.hasNext()) {
-                streamReader.next();
+                try {
+                    streamReader.next();
+                } catch (XMLStreamException e) {
+                    Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, e);
+                } catch (Exception ex) {
+                    break;
+                }
                 if (streamReader.getEventType() == XMLStreamReader.START_ELEMENT) {
                     String elementName = streamReader.getLocalName();
                     if ("books".equals(elementName)) {
@@ -58,18 +67,42 @@ public class LibraryStaxParser {
         }
     }
 
-    public void parseBooks(XMLStreamReader streamReader) throws XMLStreamException {
-        List<Writer> writers = getXmlFragments(streamReader, "books", "book");
-        writers.forEach(System.out::println);
+    public InputStream convertXMLEventToInputSource(List<XMLEvent> list) {
+        StringBuilder builder = new StringBuilder();
+        list.forEach(e -> builder.append(e));
+        InputStream stream = null;
+        try {
+            stream = new ByteArrayInputStream(builder.toString().getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException ex) {
+            throw new RuntimeException(ex);
+        }
+        return stream;
     }
 
-    public void parseEmployees(XMLStreamReader streamReader) throws XMLStreamException {
-        List<Writer> writers = getXmlFragments(streamReader, "employees", "employee");
-        writers.forEach(System.out::println);
+    public InputStream parseBooks(XMLStreamReader streamReader) {
+        List<XMLEvent> writers;
+        try {
+            writers = getXmlFragments(streamReader, "books", "book");
+            return convertXMLEventToInputSource(writers);
+        } catch (XMLStreamException ex) {
+            Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
     }
 
-    public static List<Writer> getXmlFragments(XMLStreamReader streamReader, String endTag, String fragmentRootTag) throws XMLStreamException {
-        List<Writer> rs = new ArrayList<>();
+    public InputStream parseEmployees(XMLStreamReader streamReader) {
+        List<XMLEvent> writers;
+        try {
+            writers = getXmlFragments(streamReader, "employees", "employee");
+            return convertXMLEventToInputSource(writers);
+        } catch (XMLStreamException ex) {
+            Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }
+
+    public List<XMLEvent> getXmlFragments(XMLStreamReader streamReader, String endTag, String fragmentRootTag) throws XMLStreamException {
+        List<XMLEvent> rs = new ArrayList<>();
         boolean inFragment = false;
         String tagName;
         int cursor = 0;
@@ -79,17 +112,11 @@ public class LibraryStaxParser {
             try {
                 cursor = streamReader.next();
                 if (cursor == XMLStreamConstants.START_ELEMENT) {
-                    int c = streamReader.getLocation().getColumnNumber();
-                    int l = streamReader.getLocation().getLineNumber();
-                    System.out.println("Start offset: [" + l + "," + c + "]");
                     tagName = streamReader.getLocalName();
                     if (tagName.equals(fragmentRootTag)) {
                         inFragment = true;
                     }
                 } else if (cursor == XMLStreamConstants.END_ELEMENT) {
-                    int c = streamReader.getLocation().getColumnNumber();
-                    int l = streamReader.getLocation().getLineNumber();
-                    System.out.println("End offset: [" + l + "," + c + "]");
                     tagName = streamReader.getLocalName();
                     if (tagName.equals(endTag)) {
                         break;
@@ -97,23 +124,15 @@ public class LibraryStaxParser {
                 }
                 if (inFragment) {
                     try {
-                        rs.add(getXmlFragment(streamReader, fragmentRootTag));
+                        getXmlFragment(streamReader, fragmentRootTag).forEach(e -> rs.add(e));
                     } catch (XMLStreamException ex) {
                         foundException = true;
                     }
                     inFragment = false;
                 }
             } catch (XMLStreamException ex) {
-                int c = streamReader.getLocation().getColumnNumber();
-                int l = streamReader.getLocation().getLineNumber();
-                int off = streamReader.getLocation().getCharacterOffset();
-                System.out.println("Offset: " + off);
-                System.out.println("End offset: [" + l + "," + c + "]");
                 Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
-                if (ex.getMessage().contains("end-tag")) {
-                    xr = f.createXMLEventReader(streamReader);
-                    xr.peek();
-                }
+//                exceptionHandler.skipThisElement(s);
             } catch (Exception ex) {
                 break;
             }
@@ -121,23 +140,35 @@ public class LibraryStaxParser {
         return rs;
     }
 
-    public static Writer getXmlFragment(XMLStreamReader streamReader, String parentTag) throws XMLStreamException {
-        StringWriter sw = new StringWriter();
+    public List<XMLEvent> getXmlFragment(XMLStreamReader streamReader, String parentTag) throws XMLStreamException {
+        List<XMLEvent> sw = new ArrayList<>();
         XMLOutputFactory of = XMLOutputFactory.newInstance();
-        XMLEventWriter xw = null;
-        XMLInputFactory f = XMLInputFactory.newInstance();
         XMLEventReader xr = f.createXMLEventReader(streamReader);
-
+        boolean found = false;
         while (xr.hasNext()) {
-            XMLEvent e = xr.nextEvent();
+            XMLEvent e = null;
+            try {
+                e = xr.nextEvent();
+            } catch (XMLStreamException ex) {
+                e = exceptionHandler.hanleStreamException(xr, ex);
+            }
             if (e.isStartElement()
                     && ((StartElement) e).getName().getLocalPart().equals(parentTag)) {
-                xw = of.createXMLEventWriter(sw);
+                if (found) {
+                    sw.add(exceptionHandler.newEndElement(parentTag));
+                    break;
+                } else {
+                    found = true;
+                }
             } else if (e.isEndElement()
                     && ((EndElement) e).getName().getLocalPart().equals(parentTag)) {
+                sw.add(e);
                 break;
-            } else if (xw != null) {
-                xw.add(e);
+            }
+            if (e != null) {
+                if (!e.isCharacters() || (e.isCharacters() && !e.asCharacters().isWhiteSpace())) {
+                    sw.add(e);
+                }
             }
         }
         return sw;
