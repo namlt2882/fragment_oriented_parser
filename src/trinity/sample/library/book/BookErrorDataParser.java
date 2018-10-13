@@ -40,7 +40,12 @@ public class BookErrorDataParser extends DefaultHandler implements SAXErrorDataP
     public void endElement(String uri, String localName, String qName) throws SAXException {
         currentTagName = "";
         if (found && qName.equals("book")) {
-            Book book = new Book(id, name, author, new BigInteger(price));
+            Book book = null;
+            if (price != null) {
+                book = new Book(id, name, author, new BigInteger(price));
+            } else {
+                book = new Book(id, name, author);
+            }
             result.add(book);
             found = false;
         }

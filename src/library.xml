@@ -20,10 +20,14 @@
             <author>Antoine de Saint-Exupéry</author>
             <price>5</price>
         </book>
-    
+    </book>
+</author>
+</employee>
+</library>
+
         <book xmlns="http://xml.netbeans.org/schema/books">
             <name>The Twilight Saga</name>
-            <id>4</id>
+            <id>4</id></id>
             <author>Stephenie Meyer
             <price>20</price>
         </book>

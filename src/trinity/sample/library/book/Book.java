@@ -69,6 +69,12 @@ public class Book {
         this.price = price;
     }
 
+    public Book(String id, String name, String author) {
+        this.id = id;
+        this.name = name;
+        this.author = author;
+    }
+
     @Override
     public String toString() {
         return "[id= " + id + " ,name= " + name + " ,author= " + author + " ,price= " + price + " ]";

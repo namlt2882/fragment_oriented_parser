@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLEventReader;
@@ -29,8 +28,6 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 import trinity.sample.library.book.Book;
 import trinity.sample.library.book.BookErrorDataParser;
@@ -46,7 +43,7 @@ public class LibraryStaxParser {
     private static boolean foundException = false;
     static XMLStreamReader streamReader;
     static XMLInputFactory f = XMLInputFactory.newInstance();
-    static FileReader reader;
+    static Reader reader;
     static StreamExceptionHandler exceptionHandler = new StreamExceptionHandler();
     static XMLOutputFactory outputFactory = XMLOutputFactory.newInstance();
     private List<Book> bookRs;
@@ -83,9 +80,37 @@ public class LibraryStaxParser {
         parser.getEmployeeErrRs().forEach(System.out::println);
     }
 
+    private Reader getGoodNestedTagFromFile(String fileName) throws FileNotFoundException, IOException {
+        FileReader fr = new FileReader(fileName);
+        StringBuilder sb = new StringBuilder();
+        int c;
+        while (true) {
+            c = fr.read();
+            if (c == -1) {
+                break;
+            }
+            sb.append((char) c);
+        }
+        return new StringReader(getGoodNestedTagFromString(sb.toString()));
+    }
+
+    private String getGoodNestedTagFromString(String notFormatedString) throws FileNotFoundException, IOException {
+        return getGoodNestedTagFromString(notFormatedString, null);
+    }
+    private String getGoodNestedTagFromString(String notFormatedString, String rootTag) throws FileNotFoundException, IOException {
+        StringBuilder sb = new StringBuilder();
+        if (rootTag == null) {
+            NestedTagResolver.formatNestedTag(notFormatedString).forEach(sb::append);
+        } else {
+            NestedTagResolver.formatNestedTag(notFormatedString, rootTag).forEach(sb::append);
+        }
+        String rs = sb.toString();
+        return rs;
+    }
+
     public void parse() {
         try {
-            reader = new FileReader("src/library.xml");
+            reader = getGoodNestedTagFromFile("src/library.xml");
             streamReader = f.createXMLStreamReader(reader);
 
             List<String> bookIs = null;
@@ -125,7 +150,7 @@ public class LibraryStaxParser {
                     List<Employee> rs = parseBySaxHandler(s, eedp);
                     return rs.stream();
                 }).collect(Collectors.toList());
-                
+
             } finally {
                 int c = streamReader.getLocation().getColumnNumber();
                 int l = streamReader.getLocation().getLineNumber();
@@ -165,7 +190,14 @@ public class LibraryStaxParser {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
         String s = sr.toString();
-        return s;
+        try {
+            s = getGoodNestedTagFromString(s);
+            System.out.println(s);
+            return s;
+        } catch (IOException ex) {
+            Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return "";
     }
 
     public List<String> parseBooks(XMLStreamReader streamReader) {
