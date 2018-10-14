@@ -5,6 +5,7 @@
  */
 package trinity.sample.library;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -12,9 +13,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
-import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
 import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
+import static javax.xml.stream.XMLStreamConstants.COMMENT;
+import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
+import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
 
 /**
  *
@@ -28,15 +30,39 @@ public class NestedTagResolver {
     private static List<String> splitXmlDocument(String xmlDoc) {
         List<String> rs = new ArrayList<>();
         StringBuilder localBuilder = null;
-        StringReader reader = new StringReader(xmlDoc);
+        BufferedReader reader = new BufferedReader(new StringReader(xmlDoc));
         int tmp;
         String s;
+        boolean isComment = false;
         while (true) {
             try {
                 tmp = reader.read();
                 if (tmp == -1) {
                     break;
-                } else if (tmp == '<') {
+                }
+                // not read comments
+                if (isComment) {
+                    if (tmp == '-') {
+                        reader.mark(2);
+                        int c = reader.read();
+                        if (c == '-' && (c = reader.read()) == '>') {
+                            isComment = false;
+                            continue;
+                        } else {
+                            reader.reset();
+                        }
+                    }
+                    continue;
+                }
+                if (tmp == '<') {
+                    reader.mark(3);
+                    int c = reader.read();
+                    if (c == '!' && (c = reader.read()) == '-' && (c = reader.read()) == '-') {
+                        isComment = true;
+                        continue;
+                    } else {
+                        reader.reset();
+                    }
                     if (localBuilder != null) {
                         s = localBuilder.toString();
                         if (s != null && !s.trim().equals("")) {
@@ -66,6 +92,11 @@ public class NestedTagResolver {
             } else if (s.charAt(1) == '/') {
                 return END_ELEMENT;
             } else if (s.charAt(1) == '?') {
+                return XML_DECLARATION;
+            } else if (s.charAt(1) == '!') {
+                if (s.charAt(2) == '-' && s.charAt(3) == '-') {
+                    return COMMENT;
+                }
                 return XML_DECLARATION;
             }
             return START_ELEMENT;
@@ -121,6 +152,9 @@ public class NestedTagResolver {
         String lastTagName;
         for (String string : s) {
             int type = checkTagType(string);
+            if (type == XML_DECLARATION) {
+                continue;
+            }
             if (type == START_ELEMENT) {
                 tagName = getLocalName(string);
                 queue.add(tagName);//add to queue
@@ -141,7 +175,7 @@ public class NestedTagResolver {
             queue.removeLast();
         }
         if (rootTag != null) {
-            if (formattedDoc.getFirst().contains("<?xml")) {
+            if (formattedDoc.getFirst().contains("<?") || formattedDoc.getFirst().contains("<!")) {
                 String tmpStr = formattedDoc.removeFirst();
                 formattedDoc.addFirst("<" + rootTag + ">");
                 formattedDoc.addFirst(tmpStr);
