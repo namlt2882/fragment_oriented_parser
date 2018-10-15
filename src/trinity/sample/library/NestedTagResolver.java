@@ -131,7 +131,7 @@ public class NestedTagResolver {
         return formatNestedTag(splitXmlDocument(s), rootTag);
     }
 
-    public static List<String> formatNestedTag(List<String> s, String rootTag) {
+    private static List<String> formatNestedTag(List<String> s, String rootTag) {
         LinkedList<String> formattedDoc = new LinkedList<>();
         LinkedList<String> queue = new LinkedList<>();
         String tagName;
