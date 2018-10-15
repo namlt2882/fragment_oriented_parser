@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
-import static javax.xml.stream.XMLStreamConstants.COMMENT;
 import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
 import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
 
@@ -91,12 +90,7 @@ public class NestedTagResolver {
                 return EMPTY_ELEMENT;
             } else if (s.charAt(1) == '/') {
                 return END_ELEMENT;
-            } else if (s.charAt(1) == '?') {
-                return XML_DECLARATION;
-            } else if (s.charAt(1) == '!') {
-                if (s.charAt(2) == '-' && s.charAt(3) == '-') {
-                    return COMMENT;
-                }
+            } else if (s.charAt(1) == '?' || s.charAt(1) == '!') {
                 return XML_DECLARATION;
             }
             return START_ELEMENT;
@@ -133,14 +127,6 @@ public class NestedTagResolver {
         return sb.toString();
     }
 
-    public static List<String> formatNestedTag(List<String> s) {
-        return formatNestedTag(s, null);
-    }
-
-    public static List<String> formatNestedTag(String s) {
-        return formatNestedTag(splitXmlDocument(s), null);
-    }
-
     public static List<String> formatNestedTag(String s, String rootTag) {
         return formatNestedTag(splitXmlDocument(s), rootTag);
     }
@@ -174,14 +160,18 @@ public class NestedTagResolver {
             formattedDoc.add("</" + queue.getLast() + ">");
             queue.removeLast();
         }
-        if (rootTag != null) {
-            if (formattedDoc.getFirst().contains("<?") || formattedDoc.getFirst().contains("<!")) {
-                String tmpStr = formattedDoc.removeFirst();
-                formattedDoc.addFirst("<" + rootTag + ">");
-                formattedDoc.addFirst(tmpStr);
-            } else {
-                formattedDoc.addFirst("<" + rootTag + ">");
+        //add root tag
+        boolean addRootTag = true;
+        if (rootTag == null) {
+            rootTag = "root";
+        } else {
+            String root = formattedDoc.getFirst();
+            if (rootTag.equals(getLocalName(root))) {
+                addRootTag = false;
             }
+        }
+        if (addRootTag) {
+            formattedDoc.addFirst("<" + rootTag + ">");
             formattedDoc.addLast("</" + rootTag + ">");
         }
         return formattedDoc;

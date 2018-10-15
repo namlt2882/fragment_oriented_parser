@@ -89,7 +89,7 @@ public class LibraryStaxParser {
         }
     }
 
-    private Reader getGoodNestedTagFromFile(String fileName) throws FileNotFoundException, IOException {
+    private Reader getGoodNestedTagFromFile(String fileName, String rootTag) throws FileNotFoundException, IOException {
         FileReader fr = new FileReader(fileName);
         StringBuilder sb = new StringBuilder();
         int c;
@@ -100,21 +100,13 @@ public class LibraryStaxParser {
             }
             sb.append((char) c);
         }
-        return new StringReader(getGoodNestedTagFromString(sb.toString()));
-    }
-
-    private String getGoodNestedTagFromString(String notFormatedString) throws FileNotFoundException, IOException {
-        return getGoodNestedTagFromString(notFormatedString, null);
+        return new StringReader(getGoodNestedTagFromString(sb.toString(), rootTag));
     }
 
     private String getGoodNestedTagFromString(String notFormatedString, String rootTag) throws FileNotFoundException, IOException {
         StringBuilder sb = new StringBuilder();
         List<String> newRs = null;
-        if (rootTag == null) {
-            newRs = NestedTagResolver.formatNestedTag(notFormatedString);
-        } else {
-            newRs = NestedTagResolver.formatNestedTag(notFormatedString, rootTag);
-        }
+        newRs = NestedTagResolver.formatNestedTag(notFormatedString, rootTag);
         for (String resource : newRs) {
             sb.append(resource);
         }
@@ -124,7 +116,7 @@ public class LibraryStaxParser {
 
     public void parse() {
         try {
-            reader = getGoodNestedTagFromFile("src/library.xml");
+            reader = getGoodNestedTagFromFile("src/library.xml", "library");
             streamReader = f.createXMLStreamReader(reader);
 
             List<String> bookResource = null;
@@ -192,7 +184,7 @@ public class LibraryStaxParser {
         return ((SAXErrorDataParser) handler).getResult();
     }
 
-    public String convertXMLEventToString(List<XMLEvent> list) {
+    public String convertXMLEventToString(List<XMLEvent> list, String rootTag) {
         StringWriter sr = new StringWriter();
         XMLEventWriter xew;
         try {
@@ -207,7 +199,7 @@ public class LibraryStaxParser {
         }
         String s = sr.toString();
         try {
-            s = getGoodNestedTagFromString(s);
+            s = getGoodNestedTagFromString(s, rootTag);
             System.out.println(s);
             return s;
         } catch (IOException ex) {
@@ -220,7 +212,7 @@ public class LibraryStaxParser {
         List<List<XMLEvent>> eventLists;
         try {
             eventLists = getXmlFragments(streamReader, "books", "book");
-            return convertEventListToStringList(eventLists);
+            return convertEventListToStringList(eventLists, "book");
         } catch (XMLStreamException ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -231,17 +223,17 @@ public class LibraryStaxParser {
         List<List<XMLEvent>> eventLists;
         try {
             eventLists = getXmlFragments(streamReader, "employees", "employee");
-            return convertEventListToStringList(eventLists);
+            return convertEventListToStringList(eventLists, "employee");
         } catch (XMLStreamException ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
         return new ArrayList<>();
     }
 
-    public List<String> convertEventListToStringList(List<List<XMLEvent>> eventLists) {
+    public List<String> convertEventListToStringList(List<List<XMLEvent>> eventLists, String rootTag) {
         List<String> rs = new LinkedList<>();
         for (List<XMLEvent> eventList : eventLists) {
-            rs.add(convertXMLEventToString(eventList));
+            rs.add(convertXMLEventToString(eventList, rootTag));
         }
         return rs;
     }
