@@ -12,6 +12,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,12 +41,11 @@ import trinity.sample.library.employee.EmployeeErrorDataParser;
  */
 public class LibraryStaxParser {
 
-    private static boolean foundException = false;
-    static XMLStreamReader streamReader;
-    static XMLInputFactory f = XMLInputFactory.newInstance();
-    static Reader reader;
-    static StreamExceptionHandler exceptionHandler = new StreamExceptionHandler();
-    static XMLOutputFactory outputFactory = XMLOutputFactory.newInstance();
+    private XMLStreamReader streamReader;
+    private XMLInputFactory f = XMLInputFactory.newInstance();
+    private Reader reader;
+    private StreamExceptionHandler exceptionHandler = new StreamExceptionHandler();
+    private static XMLOutputFactory outputFactory = XMLOutputFactory.newInstance();
     private List<Book> bookRs;
     private List<Book> bookErrRs;
     private List<Employee> employeeRs;
@@ -71,13 +71,22 @@ public class LibraryStaxParser {
         LibraryStaxParser parser = new LibraryStaxParser();
         parser.parse();
         System.out.println("Book data----");
-        parser.getBookRs().forEach(System.out::println);
+        for (Book book : parser.getBookRs()) {
+            System.out.println(book);
+        }
         System.out.println("Book error data----");
-        parser.getBookErrRs().forEach(System.out::println);
+        for (Book book : parser.getBookErrRs()) {
+            System.out.println(book);
+        }
+
         System.out.println("\nEmployee data----");
-        parser.getEmployeeRs().forEach(System.out::println);
+        for (Employee employee : parser.getEmployeeRs()) {
+            System.out.println(employee);
+        }
         System.out.println("Employee error data----");
-        parser.getEmployeeErrRs().forEach(System.out::println);
+        for (Employee employee : parser.getEmployeeErrRs()) {
+            System.out.println(employee);
+        }
     }
 
     private Reader getGoodNestedTagFromFile(String fileName) throws FileNotFoundException, IOException {
@@ -97,12 +106,17 @@ public class LibraryStaxParser {
     private String getGoodNestedTagFromString(String notFormatedString) throws FileNotFoundException, IOException {
         return getGoodNestedTagFromString(notFormatedString, null);
     }
+
     private String getGoodNestedTagFromString(String notFormatedString, String rootTag) throws FileNotFoundException, IOException {
         StringBuilder sb = new StringBuilder();
+        List<String> newRs = null;
         if (rootTag == null) {
-            NestedTagResolver.formatNestedTag(notFormatedString).forEach(sb::append);
+            newRs = NestedTagResolver.formatNestedTag(notFormatedString);
         } else {
-            NestedTagResolver.formatNestedTag(notFormatedString, rootTag).forEach(sb::append);
+            newRs = NestedTagResolver.formatNestedTag(notFormatedString, rootTag);
+        }
+        for (String resource : newRs) {
+            sb.append(resource);
         }
         String rs = sb.toString();
         return rs;
@@ -113,48 +127,53 @@ public class LibraryStaxParser {
             reader = getGoodNestedTagFromFile("src/library.xml");
             streamReader = f.createXMLStreamReader(reader);
 
-            List<String> bookIs = null;
-            List<String> employeeIs = null;
+            List<String> bookResource = null;
+            List<String> employeeResource = null;
             SchemaValidator validator = new SchemaValidator();
-            try {
-                while (streamReader.hasNext()) {
-                    try {
-                        streamReader.next();
-                    } catch (XMLStreamException e) {
-                        Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, e);
-                    } catch (Exception ex) {
-                        break;
-                    }
-                    if (streamReader.getEventType() == XMLStreamReader.START_ELEMENT) {
-                        String elementName = streamReader.getLocalName();
-                        if ("books".equals(elementName)) {
-                            bookIs = parseBooks(streamReader);
-                        } else if ("employees".equals(elementName)) {
-                            employeeIs = parseEmployees(streamReader);
-                        }
+            while (streamReader.hasNext()) {
+                try {
+                    streamReader.next();
+                } catch (XMLStreamException e) {
+                    Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, e);
+                } catch (Exception ex) {
+                    break;
+                }
+                if (streamReader.getEventType() == XMLStreamReader.START_ELEMENT) {
+                    String elementName = streamReader.getLocalName();
+                    if ("books".equals(elementName)) {
+                        bookResource = parseBooks(streamReader);
+                    } else if ("employees".equals(elementName)) {
+                        employeeResource = parseEmployees(streamReader);
                     }
                 }
-                List<String> notValidateBookIs = validator.validate(bookIs, Book.class);
-                bookRs = validator.getResultList();
-                List<String> notValidateEmployeeIs = validator.validate(employeeIs, Employee.class);
-                employeeRs = validator.getResultList();
-                BookErrorDataParser bedp = new BookErrorDataParser();
-                bookErrRs = notValidateBookIs.stream().flatMap(s -> {
-                    bedp.reset();
-                    List<Book> rs = parseBySaxHandler(s, bedp);
-                    return rs.stream();
-                }).collect(Collectors.toList());
-                EmployeeErrorDataParser eedp = new EmployeeErrorDataParser();
-                employeeErrRs = notValidateEmployeeIs.stream().flatMap(s -> {
-                    eedp.reset();
-                    List<Employee> rs = parseBySaxHandler(s, eedp);
-                    return rs.stream();
-                }).collect(Collectors.toList());
+            }
+            //validate book data with schema
+            List<String> notValidateBookResource = validator.validate(bookResource, Book.class);
+            bookRs = validator.getResultList(); //good book result
+            //validate employee data with schema
+            List<String> notValidateEmployeeResource = validator.validate(employeeResource, Employee.class);
+            employeeRs = validator.getResultList(); //good employee result
 
-            } finally {
-                int c = streamReader.getLocation().getColumnNumber();
-                int l = streamReader.getLocation().getLineNumber();
-//            System.out.println("End offset: [" + l + "," + c + "]");
+            //parse error book data by SAX parser and collect data
+            BookErrorDataParser bedp = new BookErrorDataParser();
+            bookErrRs = new ArrayList<>();
+            for (String string : notValidateBookResource) {
+                bedp.reset();
+                List<Book> rs = parseBySaxHandler(string, bedp);
+                for (Book r : rs) {
+                    bookErrRs.add(r);
+                }
+            }
+
+            //parse error book data by SAX parser and collect data
+            EmployeeErrorDataParser eedp = new EmployeeErrorDataParser();
+            employeeErrRs = new ArrayList<>();
+            for (String string : notValidateEmployeeResource) {
+                eedp.reset();
+                List<Employee> rs = parseBySaxHandler(string, eedp);
+                for (Employee r : rs) {
+                    employeeErrRs.add(r);
+                }
             }
         } catch (Exception ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
@@ -178,12 +197,9 @@ public class LibraryStaxParser {
         XMLEventWriter xew;
         try {
             xew = outputFactory.createXMLEventWriter(sr);
-            list.forEach((event) -> {
-                try {
-                    xew.add(event);
-                } catch (XMLStreamException ex) {
-                }
-            });
+            for (XMLEvent event : list) {
+                xew.add(event);
+            }
             xew.flush();
             xew.close();
         } catch (XMLStreamException ex) {
@@ -201,10 +217,10 @@ public class LibraryStaxParser {
     }
 
     public List<String> parseBooks(XMLStreamReader streamReader) {
-        List<List<XMLEvent>> writers;
+        List<List<XMLEvent>> eventLists;
         try {
-            writers = getXmlFragments(streamReader, "books", "book");
-            return writers.stream().map(this::convertXMLEventToString).collect(Collectors.toList());
+            eventLists = getXmlFragments(streamReader, "books", "book");
+            return convertEventListToStringList(eventLists);
         } catch (XMLStreamException ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -212,14 +228,22 @@ public class LibraryStaxParser {
     }
 
     public List<String> parseEmployees(XMLStreamReader streamReader) {
-        List<List<XMLEvent>> writers;
+        List<List<XMLEvent>> eventLists;
         try {
-            writers = getXmlFragments(streamReader, "employees", "employee");
-            return writers.stream().map(this::convertXMLEventToString).collect(Collectors.toList());
+            eventLists = getXmlFragments(streamReader, "employees", "employee");
+            return convertEventListToStringList(eventLists);
         } catch (XMLStreamException ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
         return new ArrayList<>();
+    }
+
+    public List<String> convertEventListToStringList(List<List<XMLEvent>> eventLists) {
+        List<String> rs = new LinkedList<>();
+        for (List<XMLEvent> eventList : eventLists) {
+            rs.add(convertXMLEventToString(eventList));
+        }
+        return rs;
     }
 
     public List<List<XMLEvent>> getXmlFragments(XMLStreamReader streamReader, String endTag, String fragmentRootTag) throws XMLStreamException {
@@ -245,15 +269,13 @@ public class LibraryStaxParser {
                 }
                 if (inFragment) {
                     try {
-                        getXmlFragment(streamReader, fragmentRootTag).forEach(e -> rs.add(e));
+                        getXmlFragment(streamReader, fragmentRootTag, rs);
                     } catch (XMLStreamException ex) {
-                        foundException = true;
                     }
                     inFragment = false;
                 }
             } catch (XMLStreamException ex) {
                 Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
-//                exceptionHandler.skipThisElement(s);
             } catch (Exception ex) {
                 break;
             }
@@ -261,8 +283,7 @@ public class LibraryStaxParser {
         return rs;
     }
 
-    public List<List<XMLEvent>> getXmlFragment(XMLStreamReader streamReader, String parentTag) throws XMLStreamException {
-        List<List<XMLEvent>> rs = new ArrayList<>();
+    public List<List<XMLEvent>> getXmlFragment(XMLStreamReader streamReader, String parentTag, List<List<XMLEvent>> rs) throws XMLStreamException {
         XMLOutputFactory of = XMLOutputFactory.newInstance();
         XMLEventReader xr = f.createXMLEventReader(streamReader);
         boolean found = false;

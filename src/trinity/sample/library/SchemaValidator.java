@@ -52,19 +52,16 @@ public class SchemaValidator {
             schema = sf.newSchema(new File(getChemaLocation(clazz)));
 
             Validator validator = schema.newValidator();
-            sl.forEach(s -> {
+            for (String s : sl) {
                 try {
                     validator.validate(new SAXSource(createInputSource(s)));
                     A item = (A) u.unmarshal(new SAXSource(createInputSource(s)));
                     resultList.add(item);
                 } catch (Exception ex) {
-//                    Logger.getLogger(SchemaValidator.class.getName()).log(Level.SEVERE, null, ex);
                     rs.add(s);
                 }
-            });
-
+            }
         } catch (Exception ex) {
-//            Logger.getLogger(SchemaValidator.class.getName()).log(Level.SEVERE, null, ex);
         }
         return rs;
     }
