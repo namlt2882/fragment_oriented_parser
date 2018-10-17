@@ -67,7 +67,8 @@ public class LibraryStaxParser {
         return employeeErrRs;
     }
 
-    public static void main(String[] args) throws XMLStreamException, FileNotFoundException {
+    public static void main(String[] args) throws XMLStreamException, 
+            FileNotFoundException {
         LibraryStaxParser parser = new LibraryStaxParser();
         parser.parse();
         System.out.println("Book data----");
@@ -89,7 +90,8 @@ public class LibraryStaxParser {
         }
     }
 
-    private Reader getGoodNestedTagFromFile(String fileName, String rootTag) throws FileNotFoundException, IOException {
+    private Reader getGoodNestedTagFromFile(String fileName, String rootTag) 
+            throws FileNotFoundException, IOException {
         FileReader fr = new FileReader(fileName);
         StringBuilder sb = new StringBuilder();
         int c;
@@ -103,7 +105,8 @@ public class LibraryStaxParser {
         return new StringReader(getGoodNestedTagFromString(sb.toString(), rootTag));
     }
 
-    private String getGoodNestedTagFromString(String notFormatedString, String rootTag) throws FileNotFoundException, IOException {
+    private String getGoodNestedTagFromString(String notFormatedString, String rootTag) 
+            throws FileNotFoundException, IOException {
         StringBuilder sb = new StringBuilder();
         List<String> newRs = null;
         newRs = NestedTagResolver.formatNestedTag(notFormatedString, rootTag);
@@ -208,6 +211,14 @@ public class LibraryStaxParser {
         return "";
     }
 
+    public List<String> convertEventListToStringList(List<List<XMLEvent>> eventLists, String rootTag) {
+        List<String> rs = new LinkedList<>();
+        for (List<XMLEvent> eventList : eventLists) {
+            rs.add(convertXMLEventToString(eventList, rootTag));
+        }
+        return rs;
+    }
+
     public List<String> parseBooks(XMLStreamReader streamReader) {
         List<List<XMLEvent>> eventLists;
         try {
@@ -230,15 +241,8 @@ public class LibraryStaxParser {
         return new ArrayList<>();
     }
 
-    public List<String> convertEventListToStringList(List<List<XMLEvent>> eventLists, String rootTag) {
-        List<String> rs = new LinkedList<>();
-        for (List<XMLEvent> eventList : eventLists) {
-            rs.add(convertXMLEventToString(eventList, rootTag));
-        }
-        return rs;
-    }
-
-    public List<List<XMLEvent>> getXmlFragments(XMLStreamReader streamReader, String endTag, String fragmentRootTag) throws XMLStreamException {
+    public List<List<XMLEvent>> getXmlFragments(XMLStreamReader streamReader, String endTag,
+            String fragmentRootTag) throws XMLStreamException {
         List<List<XMLEvent>> rs = new ArrayList<>();
         boolean inFragment = false;
         String tagName;
@@ -275,22 +279,18 @@ public class LibraryStaxParser {
         return rs;
     }
 
-    public List<List<XMLEvent>> getXmlFragment(XMLStreamReader streamReader, String parentTag, List<List<XMLEvent>> rs) throws XMLStreamException {
-        XMLOutputFactory of = XMLOutputFactory.newInstance();
+    public void getXmlFragment(XMLStreamReader streamReader, String rootTag,
+            List<List<XMLEvent>> rs) throws XMLStreamException {
         XMLEventReader xr = f.createXMLEventReader(streamReader);
         boolean found = false;
         List<XMLEvent> tmp = null;
         while (xr.hasNext()) {
             XMLEvent e = null;
-            try {
-                e = xr.nextEvent();
-            } catch (XMLStreamException ex) {
-                e = exceptionHandler.hanleStreamException(xr, ex);
-            }
+            e = xr.nextEvent();
             if (e.isStartElement()
-                    && ((StartElement) e).getName().getLocalPart().equals(parentTag)) {
+                    && ((StartElement) e).getName().getLocalPart().equals(rootTag)) {
                 if (found) {
-                    tmp.add(exceptionHandler.newEndElement(parentTag));
+                    tmp.add(exceptionHandler.newEndElement(rootTag));
                     rs.add(tmp);
                     break;
                 } else {
@@ -298,7 +298,7 @@ public class LibraryStaxParser {
                     tmp = new ArrayList<>();
                 }
             } else if (e.isEndElement()
-                    && ((EndElement) e).getName().getLocalPart().equals(parentTag)) {
+                    && ((EndElement) e).getName().getLocalPart().equals(rootTag)) {
                 tmp.add(e);
                 rs.add(tmp);
                 break;
@@ -309,7 +309,6 @@ public class LibraryStaxParser {
                 }
             }
         }
-        return rs;
     }
 
 }

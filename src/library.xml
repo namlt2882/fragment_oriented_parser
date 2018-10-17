@@ -18,7 +18,7 @@
             <id>3</id>
             <name>The Little Prince</name>
             <author>Antoine de Saint-Exupéry</author>
-            <price>5</price>
+            <price>-5</price>
         </book>
     </book>
 </author>

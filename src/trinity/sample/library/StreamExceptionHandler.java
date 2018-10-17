@@ -6,7 +6,6 @@ import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.events.XMLEvent;
 
 public class StreamExceptionHandler {
@@ -26,19 +25,6 @@ public class StreamExceptionHandler {
             }
         }
         return event;
-    }
-
-    public void skipThisElement(XMLStreamReader reader) {
-        try {
-            XMLEventReader eventReader = f.createXMLEventReader(reader);
-            skipThisElement(eventReader);
-        } catch (XMLStreamException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
-    public void skipThisElement(XMLEventReader reader) {
-        reader.next();
     }
 
     public XMLEvent newStartElement(String tagName) {

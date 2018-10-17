@@ -26,7 +26,7 @@ import trinity.sample.library.employee.Employee;
  */
 public class SchemaValidator {
 
-    SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+    private SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
     private List resultList;
 
     public String getChemaLocation(Class clazz) {

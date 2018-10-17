@@ -1,7 +1,5 @@
 package trinity.sample.library.employee;
 
-import trinity.sample.library.book.*;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import org.xml.sax.Attributes;
@@ -27,7 +25,8 @@ public class EmployeeErrorDataParser extends DefaultHandler implements SAXErrorD
     }
 
     @Override
-    public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+    public void startElement(String uri, String localName, String qName, Attributes attributes)
+            throws SAXException {
         if (qName.equals("employee")) {
             found = true;
         }
