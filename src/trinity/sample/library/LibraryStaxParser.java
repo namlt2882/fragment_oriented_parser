@@ -67,7 +67,7 @@ public class LibraryStaxParser {
         return employeeErrRs;
     }
 
-    public static void main(String[] args) throws XMLStreamException, 
+    public static void main(String[] args) throws XMLStreamException,
             FileNotFoundException {
         LibraryStaxParser parser = new LibraryStaxParser();
         parser.parse();
@@ -90,7 +90,7 @@ public class LibraryStaxParser {
         }
     }
 
-    private Reader getGoodNestedTagFromFile(String fileName, String rootTag) 
+    private Reader getGoodNestedTagFromFile(String fileName, String rootTag)
             throws FileNotFoundException, IOException {
         FileReader fr = new FileReader(fileName);
         StringBuilder sb = new StringBuilder();
@@ -105,7 +105,7 @@ public class LibraryStaxParser {
         return new StringReader(getGoodNestedTagFromString(sb.toString(), rootTag));
     }
 
-    private String getGoodNestedTagFromString(String notFormatedString, String rootTag) 
+    private String getGoodNestedTagFromString(String notFormatedString, String rootTag)
             throws FileNotFoundException, IOException {
         StringBuilder sb = new StringBuilder();
         List<String> newRs = null;
@@ -151,25 +151,17 @@ public class LibraryStaxParser {
 
             //parse error book data by SAX parser and collect data
             BookErrorDataParser bedp = new BookErrorDataParser();
-            bookErrRs = new ArrayList<>();
             for (String string : notValidateBookResource) {
-                bedp.reset();
                 List<Book> rs = parseBySaxHandler(string, bedp);
-                for (Book r : rs) {
-                    bookErrRs.add(r);
-                }
             }
+            bookErrRs = bedp.getResult();
 
             //parse error book data by SAX parser and collect data
             EmployeeErrorDataParser eedp = new EmployeeErrorDataParser();
-            employeeErrRs = new ArrayList<>();
             for (String string : notValidateEmployeeResource) {
-                eedp.reset();
                 List<Employee> rs = parseBySaxHandler(string, eedp);
-                for (Employee r : rs) {
-                    employeeErrRs.add(r);
-                }
             }
+            employeeErrRs = eedp.getResult();
         } catch (Exception ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -244,31 +236,24 @@ public class LibraryStaxParser {
     public List<List<XMLEvent>> getXmlFragments(XMLStreamReader streamReader, String endTag,
             String fragmentRootTag) throws XMLStreamException {
         List<List<XMLEvent>> rs = new ArrayList<>();
-        boolean inFragment = false;
         String tagName;
         int cursor = 0;
-        XMLInputFactory f = XMLInputFactory.newInstance();
-        XMLEventReader xr;
         while (streamReader.hasNext()) {
             try {
                 cursor = streamReader.next();
                 if (cursor == XMLStreamConstants.START_ELEMENT) {
                     tagName = streamReader.getLocalName();
                     if (tagName.equals(fragmentRootTag)) {
-                        inFragment = true;
+                        try {
+                            getXmlFragment(streamReader, fragmentRootTag, rs);
+                        } catch (XMLStreamException ex) {
+                        }
                     }
                 } else if (cursor == XMLStreamConstants.END_ELEMENT) {
                     tagName = streamReader.getLocalName();
                     if (tagName.equals(endTag)) {
                         break;
                     }
-                }
-                if (inFragment) {
-                    try {
-                        getXmlFragment(streamReader, fragmentRootTag, rs);
-                    } catch (XMLStreamException ex) {
-                    }
-                    inFragment = false;
                 }
             } catch (XMLStreamException ex) {
                 Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
