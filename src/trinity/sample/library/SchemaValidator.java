@@ -11,12 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.xml.XMLConstants;
 import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import trinity.sample.library.book.Book;
 import trinity.sample.library.employee.Employee;
 
@@ -41,27 +43,25 @@ public class SchemaValidator {
         return rs;
     }
 
-    public <A> List<String> validate(List<String> sl, Class<A> clazz) {
+    public <A> List<String> validate(List<String> fragments, Class<A> clazz) 
+            throws JAXBException, SAXException {
         List<String> rs = new ArrayList<>();
         resultList = new ArrayList();
-        try {
-            JAXBContext jc = JAXBContext.newInstance(clazz);
-            Unmarshaller u = jc.createUnmarshaller();
+        JAXBContext jc = JAXBContext.newInstance(clazz);
+        Unmarshaller u = jc.createUnmarshaller();
 
-            Schema schema;
-            schema = sf.newSchema(new File(getChemaLocation(clazz)));
+        Schema schema;
+        schema = sf.newSchema(new File(getChemaLocation(clazz)));
 
-            Validator validator = schema.newValidator();
-            for (String s : sl) {
-                try {
-                    validator.validate(new SAXSource(createInputSource(s)));
-                    A item = (A) u.unmarshal(new SAXSource(createInputSource(s)));
-                    resultList.add(item);
-                } catch (Exception ex) {
-                    rs.add(s);
-                }
+        Validator validator = schema.newValidator();
+        for (String s : fragments) {
+            try {
+                validator.validate(new SAXSource(createInputSource(s)));
+                A item = (A) u.unmarshal(new SAXSource(createInputSource(s)));
+                resultList.add(item);
+            } catch (Exception ex) {
+                rs.add(s);
             }
-        } catch (Exception ex) {
         }
         return rs;
     }

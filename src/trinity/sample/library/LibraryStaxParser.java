@@ -16,7 +16,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
+import javax.xml.bind.JAXBException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.stream.XMLEventReader;
@@ -29,6 +29,7 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.events.EndElement;
 import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
+import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 import trinity.sample.library.book.Book;
 import trinity.sample.library.book.BookErrorDataParser;
@@ -142,26 +143,33 @@ public class LibraryStaxParser {
                     }
                 }
             }
-            //validate book data with schema
-            List<String> notValidateBookResource = validator.validate(bookResource, Book.class);
-            bookRs = validator.getResultList(); //good book result
-            //validate employee data with schema
-            List<String> notValidateEmployeeResource = validator.validate(employeeResource, Employee.class);
-            employeeRs = validator.getResultList(); //good employee result
-
-            //parse error book data by SAX parser and collect data
-            BookErrorDataParser bedp = new BookErrorDataParser();
-            for (String string : notValidateBookResource) {
-                List<Book> rs = parseBySaxHandler(string, bedp);
+            try {
+                //validate book data with schema
+                List<String> notValidateBookResource = validator.validate(bookResource, Book.class);
+                bookRs = validator.getResultList(); //good book result
+                //parse error book data by SAX parser and collect data
+                BookErrorDataParser bedp = new BookErrorDataParser();
+                for (String string : notValidateBookResource) {
+                    parseBySaxHandler(string, bedp);
+                }
+                bookErrRs = bedp.getResult();
+            } catch (JAXBException | SAXException e) {
+                throw new Exception("Error when validate Book");
             }
-            bookErrRs = bedp.getResult();
 
-            //parse error book data by SAX parser and collect data
-            EmployeeErrorDataParser eedp = new EmployeeErrorDataParser();
-            for (String string : notValidateEmployeeResource) {
-                List<Employee> rs = parseBySaxHandler(string, eedp);
+            try {
+                //validate employee data with schema
+                List<String> notValidateEmployeeResource = validator.validate(employeeResource, Employee.class);
+                employeeRs = validator.getResultList(); //good employee result
+                //parse error book data by SAX parser and collect data
+                EmployeeErrorDataParser eedp = new EmployeeErrorDataParser();
+                for (String string : notValidateEmployeeResource) {
+                    parseBySaxHandler(string, eedp);
+                }
+                employeeErrRs = eedp.getResult();
+            } catch (JAXBException | SAXException e) {
+                throw new Exception("Error when validate Employee");
             }
-            employeeErrRs = eedp.getResult();
         } catch (Exception ex) {
             Logger.getLogger(LibraryStaxParser.class.getName()).log(Level.SEVERE, null, ex);
         }
