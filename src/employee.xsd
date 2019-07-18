@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<xsd:schema version="1.0"
+            targetNamespace="http://xml.netbeans.org/schema/employees" 
+            xmlns="http://xml.netbeans.org/schema/employees" 
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            elementFormDefault="qualified">
+    <xsd:element name="employee" type="Employee"/>
+    <xsd:complexType name="Employee">
+        <xsd:sequence>
+            <xsd:element name="id" type="xsd:string"/>
+            <xsd:element name="name" type="xsd:string"/>
+        </xsd:sequence>
+    </xsd:complexType>
+</xsd:schema>
